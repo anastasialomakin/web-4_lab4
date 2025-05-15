@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+
+{% block title %}Главная{% endblock %}
+
+{% block content %}
+    <h1>Добро пожаловать!</h1>
+    <p>Это главная страница.</p>
+    {% if current_user.is_authenticated %}
+        <p>Вы вошли как <strong>{{ current_user.id }}</strong>.</p>
+    {% else %}
+        <p>Пожалуйста, <a href="{{ url_for('login') }}">войдите</a> или просмотрите общедоступные страницы.</p>
+    {% endif %}
+{% endblock %}
