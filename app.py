@@ -3,7 +3,7 @@ import re
 from datetime import datetime
 from flask import Flask, render_template, redirect, url_for, session, flash, request, abort
 from flask_sqlalchemy import SQLAlchemy
-from flask_migrate import Migrate # For database migrations
+from flask_migrate import Migrate 
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, BooleanField, SubmitField, SelectField
@@ -15,11 +15,11 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your_very_secret_key_replace_in_production_for_real')
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///site.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-application = app # For Elastic Beanstalk or similar
+application = app 
 
 # --- Database Setup ---
 db = SQLAlchemy(app)
-migrate = Migrate(app, db) # Initialize Flask-Migrate
+migrate = Migrate(app, db) 
 
 # --- Login Manager Setup ---
 login_manager = LoginManager()
@@ -46,7 +46,7 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(255), nullable=False)
     first_name = db.Column(db.String(100), nullable=False)
     last_name = db.Column(db.String(100), nullable=True) # Фамилия может отсутствовать
-    middle_name = db.Column(db.String(100), nullable=True)
+    middle_name = db.Column(db.String(100), nullable=True) # Отчество может отсутствовать
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     role_id = db.Column(db.Integer, db.ForeignKey('roles.id'), nullable=True) # Роль может отсутствовать
 
@@ -65,7 +65,7 @@ class User(UserMixin, db.Model):
 
     def get_fio(self):
         parts = [self.last_name, self.first_name, self.middle_name]
-        return " ".join(p for p in parts if p) or self.username # Fallback to username if FIO is empty
+        return " ".join(p for p in parts if p) or self.username 
 
     def __repr__(self):
         return f'<User {self.username}>'
@@ -87,13 +87,6 @@ def password_complexity_validator(form, field):
     if re.search(r"\s", password):
         errors.append("Пароль не должен содержать пробелов.")
     
-    # Allowed characters: Latin or Cyrillic letters, Arabic numerals, and specific symbols
-    # Breaking down the regex:
-    # ^ ... $  -- anchors to start and end of string
-    # [ ... ]* -- zero or more occurrences of characters within the brackets
-    # a-zA-Zа-яА-Я -- Latin and Cyrillic letters
-    # 0-9 -- Arabic numerals
-    # ~!?@#$%^&*_\-+=()[\]{}><\/\\|\"'.,:; -- specific allowed symbols (escaped where necessary)
     allowed_chars_pattern = r"^[a-zA-Zа-яА-Я0-9~!?@#$%^&*_\-+=()[\]{}><\/\\|\"'.,:;]*$"
     if not re.match(allowed_chars_pattern, password):
         errors.append("Пароль содержит недопустимые символы.")
@@ -121,14 +114,14 @@ class UserForm(FlaskForm):
         password_complexity_validator
     ])
     first_name = StringField('Имя', validators=[DataRequired(message="Поле 'Имя' не может быть пустым.")])
-    last_name = StringField('Фамилия') # Optional
-    middle_name = StringField('Отчество') # Optional
-    role = SelectField('Роль', coerce=int, validate_choice=False) # validate_choice=False because choices are dynamic
+    last_name = StringField('Фамилия') 
+    middle_name = StringField('Отчество') 
+    role = SelectField('Роль', coerce=int, validate_choice=False) 
     submit = SubmitField('Сохранить')
 
     def __init__(self, *args, **kwargs):
         super(UserForm, self).__init__(*args, **kwargs)
-        # Populate role choices, add an option for "no role"
+
         self.role.choices = [(0, '--- Без роли ---')] + [(role.id, role.name) for role in Role.query.order_by('name').all()]
 
 class UserEditForm(FlaskForm):
@@ -155,12 +148,16 @@ class ChangePasswordForm(FlaskForm):
     ])
     submit = SubmitField('Изменить пароль')
 
+class DeleteUserForm(FlaskForm):
+    submit = SubmitField('Да, удалить')
+
 # --- Routes ---
 @app.route('/')
 def index():
     """Главная страница - список пользователей."""
     users = User.query.order_by(User.created_at.desc()).all()
-    return render_template('index.html', users=users)
+    delete_form = DeleteUserForm() 
+    return render_template('index.html', users=users, delete_form=delete_form)
 
 @app.route('/visits')
 def visits():
@@ -205,7 +202,6 @@ def create_user():
     form = UserForm()
     if form.validate_on_submit():
         try:
-            # Check if username already exists
             existing_user = User.query.filter_by(username=form.username.data).first()
             if existing_user:
                 form.username.errors.append("Пользователь с таким логином уже существует.")
@@ -215,9 +211,9 @@ def create_user():
             new_user = User(
                 username=form.username.data,
                 first_name=form.first_name.data,
-                last_name=form.last_name.data or None, # Store None if empty
+                last_name=form.last_name.data or None, 
                 middle_name=form.middle_name.data or None,
-                role_id=form.role.data if form.role.data != 0 else None # 0 means "no role"
+                role_id=form.role.data if form.role.data != 0 else None # 0 - "no role"
             )
             new_user.set_password(form.password.data)
             db.session.add(new_user)
@@ -227,7 +223,7 @@ def create_user():
         except Exception as e:
             db.session.rollback()
             flash(f'Ошибка при создании пользователя: {str(e)}', 'danger')
-    elif request.method == 'POST': # Form validation failed
+    elif request.method == 'POST':
         flash('Ошибка при создании пользователя. Проверьте введенные данные.', 'danger')
 
     return render_template('user_form_page.html', form=form, title="Создание пользователя", is_edit=False)
@@ -242,9 +238,8 @@ def view_user(user_id):
 @login_required
 def edit_user(user_id):
     user_to_edit = User.query.get_or_404(user_id)
-    form = UserEditForm(obj=user_to_edit) # Pre-populate form
+    form = UserEditForm(obj=user_to_edit) 
 
-    # Set current role in dropdown
     if request.method == 'GET':
         form.role.data = user_to_edit.role_id if user_to_edit.role_id else 0
 
@@ -261,7 +256,7 @@ def edit_user(user_id):
         except Exception as e:
             db.session.rollback()
             flash(f'Ошибка при обновлении пользователя: {str(e)}', 'danger')
-    elif request.method == 'POST': # Form validation failed
+    elif request.method == 'POST': 
          flash('Ошибка при обновлении пользователя. Проверьте введенные данные.', 'danger')
 
 
@@ -272,7 +267,7 @@ def edit_user(user_id):
 @login_required
 def delete_user(user_id):
     user_to_delete = User.query.get_or_404(user_id)
-    if user_to_delete == current_user: # Prevent self-deletion for simplicity
+    if user_to_delete == current_user: 
         flash('Вы не можете удалить свою учетную запись.', 'warning')
         return redirect(url_for('index'))
     try:
@@ -302,7 +297,7 @@ def change_password():
         else:
             form.old_password.errors.append('Неверный старый пароль.')
             flash('Ошибка при смене пароля. Проверьте данные.', 'danger')
-    elif request.method == 'POST': # Form validation failed
+    elif request.method == 'POST': 
         flash('Ошибка при смене пароля. Проверьте введенные данные.', 'danger')
 
     return render_template('change_password.html', form=form, title="Изменение пароля")
@@ -310,9 +305,8 @@ def change_password():
 # --- Helper for initial data ---
 def create_initial_roles_and_admin():
     with app.app_context():
-        db.create_all() # Create tables if they don't exist
+        db.create_all() 
 
-        # Create roles if they don't exist
         if Role.query.count() == 0:
             print("Creating initial roles...")
             admin_role = Role(name='Администратор', description='Полный доступ к системе')
@@ -325,12 +319,10 @@ def create_initial_roles_and_admin():
             print("Roles already exist.")
             admin_role = Role.query.filter_by(name='Администратор').first()
 
-
-        # Create admin user if none exists
         if User.query.filter_by(username='admin').first() is None:
             print("Creating admin user...")
             admin_user = User(username='admin', first_name='Админ', role_id=admin_role.id if admin_role else None)
-            admin_user.set_password('Admin123!') # Compliant password
+            admin_user.set_password('Admin123!') 
             db.session.add(admin_user)
             db.session.commit()
             print("Admin user created. Login: admin, Password: Admin123!")
@@ -338,5 +330,5 @@ def create_initial_roles_and_admin():
             print("Admin user already exists.")
 
 if __name__ == '__main__':
-    create_initial_roles_and_admin() # Call this to ensure roles and admin exist
+    create_initial_roles_and_admin() 
     app.run(debug=True)
