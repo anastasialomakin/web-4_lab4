@@ -1,7 +1,7 @@
 import os
 import re
 from datetime import datetime
-from flask import Flask, render_template, redirect, url_for, session, flash, request, abort
+from flask import Flask, render_template, redirect, url_for, session, flash, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate 
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
@@ -10,25 +10,25 @@ from wtforms import StringField, PasswordField, BooleanField, SubmitField, Selec
 from wtforms.validators import DataRequired, Length, EqualTo, Regexp, ValidationError
 from werkzeug.security import generate_password_hash, check_password_hash
 
-# --- App Configuration ---
+# конфига
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your_very_secret_key_replace_in_production_for_real')
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///site.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 application = app 
 
-# --- Database Setup ---
+# инициализация бд
 db = SQLAlchemy(app)
 migrate = Migrate(app, db) 
 
-# --- Login Manager Setup ---
+# менеджер логинов
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 login_manager.login_message = "Для доступа к этой странице необходимо войти."
 login_manager.login_message_category = "info"
 
-# --- Models ---
+# бд
 class Role(db.Model):
     __tablename__ = 'roles'
     id = db.Column(db.Integer, primary_key=True)
@@ -74,7 +74,7 @@ class User(UserMixin, db.Model):
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-# --- Custom Validators ---
+# валидатор
 def password_complexity_validator(form, field):
     password = field.data
     errors = []
@@ -95,7 +95,7 @@ def password_complexity_validator(form, field):
         raise ValidationError(" ".join(errors))
 
 
-# --- Forms ---
+# формы
 class LoginForm(FlaskForm):
     username = StringField('Логин', validators=[DataRequired(message="Поле не может быть пустым")])
     password = PasswordField('Пароль', validators=[DataRequired(message="Пароль не может быть пустым")])
@@ -121,7 +121,6 @@ class UserForm(FlaskForm):
 
     def __init__(self, *args, **kwargs):
         super(UserForm, self).__init__(*args, **kwargs)
-
         self.role.choices = [(0, '--- Без роли ---')] + [(role.id, role.name) for role in Role.query.order_by('name').all()]
 
 class UserEditForm(FlaskForm):
@@ -151,7 +150,7 @@ class ChangePasswordForm(FlaskForm):
 class DeleteUserForm(FlaskForm):
     submit = SubmitField('Да, удалить')
 
-# --- Routes ---
+# декортаторы
 @app.route('/')
 def index():
     """Главная страница - список пользователей."""
@@ -195,7 +194,7 @@ def logout():
 def secret():
     return render_template('secret.html')
 
-# --- User CRUD Routes ---
+# CRUD
 @app.route('/users/new', methods=['GET', 'POST'])
 @login_required
 def create_user():
@@ -213,7 +212,7 @@ def create_user():
                 first_name=form.first_name.data,
                 last_name=form.last_name.data or None, 
                 middle_name=form.middle_name.data or None,
-                role_id=form.role.data if form.role.data != 0 else None # 0 - "no role"
+                role_id=form.role.data if form.role.data != 0 else None # 0 - без роли
             )
             new_user.set_password(form.password.data)
             db.session.add(new_user)
@@ -243,7 +242,6 @@ def edit_user(user_id):
     if request.method == 'GET':
         form.role.data = user_to_edit.role_id if user_to_edit.role_id else 0
 
-
     if form.validate_on_submit():
         try:
             user_to_edit.first_name = form.first_name.data
@@ -258,7 +256,6 @@ def edit_user(user_id):
             flash(f'Ошибка при обновлении пользователя: {str(e)}', 'danger')
     elif request.method == 'POST': 
          flash('Ошибка при обновлении пользователя. Проверьте введенные данные.', 'danger')
-
 
     return render_template('user_form_page.html', form=form, title=f"Редактирование: {user_to_edit.get_fio()}", user=user_to_edit, is_edit=True)
 
@@ -302,7 +299,7 @@ def change_password():
 
     return render_template('change_password.html', form=form, title="Изменение пароля")
 
-# --- Helper for initial data ---
+# админ вручную
 def create_initial_roles_and_admin():
     with app.app_context():
         db.create_all() 

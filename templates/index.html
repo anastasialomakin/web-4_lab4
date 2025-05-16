@@ -31,7 +31,7 @@
                     <a href="{{ url_for('view_user', user_id=user.id) }}" class="btn btn-sm btn-info">Просмотр</a>
                     {% if current_user.is_authenticated %}
                         <a href="{{ url_for('edit_user', user_id=user.id) }}" class="btn btn-sm btn-warning">Редактировать</a>
-                        {% if user != current_user %} {# Нельзя удалить самого себя через эту кнопку #}
+                        {% if user != current_user %} 
                         <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#deleteUserModal-{{ user.id }}">
                             Удалить
                         </button>
